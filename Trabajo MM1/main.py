@@ -97,25 +97,27 @@ def calcular_teorico_mm1_finito(lam, mu, tamano_cola):
     K = tamano_cola + 1
 
     if math.isclose(rho, 1.0):
-        pn = {n: 1 / (K + 1) for n in range(K + 1)}
+        p_bloqueo = 1 / (K + 1)
     else:
         p0 = (1 - rho) / (1 - rho ** (K + 1))
-        pn = {n: p0 * rho**n for n in range(K + 1)}
+        p_bloqueo = p0 * rho**K
 
     return {
         "rho": rho,
         "K": K,
-        "P_bloqueo_teorico": pn[K],
-        "probabilidades_sistema_teoricas": pn,
+        "P_bloqueo_teorico": p_bloqueo,
     }
 
 
-def simular_mm1(lam, mu, tiempo_simulacion, rng, tamano_cola=None):
+def simular_mm1(lam, mu, tiempo_simulacion, rng, tamano_cola=None, registrar_historial=True):
     """
     Simula una cola M/M/1 por eventos discretos.
 
     tamano_cola=None representa cola infinita. Si es entero, representa solo
     los lugares de espera; la capacidad total del sistema es tamano_cola + 1.
+
+    registrar_historial=False evita armar la traza evento-a-evento (costosa) cuando
+    solo interesan las medidas finales.
     """
     tiempo = 0.0
     proxima_llegada = rng.exponential(1 / lam)
@@ -196,17 +198,18 @@ def simular_mm1(lam, mu, tiempo_simulacion, rng, tamano_cola=None):
                 inicio_servicio_actual = None
                 proxima_salida = math.inf
 
-        tiempo_transcurrido = max(tiempo, 1e-12)
-        historial.append(
-            {
-                "tiempo": tiempo,
-                "L_t": area_l / tiempo_transcurrido,
-                "Lq_t": area_lq / tiempo_transcurrido,
-                "W_t": promedio_seguro(suma_w, completados),
-                "Wq_t": promedio_seguro(suma_wq, completados),
-                "utilizacion_t": area_utilizacion / tiempo_transcurrido,
-            }
-        )
+        if registrar_historial:
+            tiempo_transcurrido = max(tiempo, 1e-12)
+            historial.append(
+                {
+                    "tiempo": tiempo,
+                    "L_t": area_l / tiempo_transcurrido,
+                    "Lq_t": area_lq / tiempo_transcurrido,
+                    "W_t": promedio_seguro(suma_w, completados),
+                    "Wq_t": promedio_seguro(suma_wq, completados),
+                    "utilizacion_t": area_utilizacion / tiempo_transcurrido,
+                }
+            )
 
     probabilidades_q = {
         q: tiempo_q / tiempo_simulacion for q, tiempo_q in sorted(tiempo_por_q.items())
@@ -224,7 +227,7 @@ def simular_mm1(lam, mu, tiempo_simulacion, rng, tamano_cola=None):
         "denegados": denegados,
         "completados": completados,
         "probabilidades_q": probabilidades_q,
-        "historial": pd.DataFrame(historial),
+        "historial": pd.DataFrame(historial) if registrar_historial else None,
     }
 
 
@@ -253,6 +256,7 @@ def ejecutar_experimentos_mm1(parametros):
                     parametros["tiempo_simulacion"],
                     rng,
                     tamano_cola=tamano_cola,
+                    registrar_historial=(corrida == 1),
                 )
 
                 fila = {
