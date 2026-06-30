@@ -1,12 +1,14 @@
 # Plan TP3 — Simulación MM1 e Inventario
 
-Estado al 2026-06-30. Cruce entre la **consigna** (`Consigna.md`), el **código** (`Trabajo MM1/main.py`) y el **informe en proceso** (`TP3-en proceso.pdf`, 10 págs).
+Estado al 2026-06-30. Cruce entre la **consigna** (`Consigna.md`), el **código** (`MM1/main.py` e `Inventario/main.py`) y el **informe en proceso** (`TP3-en proceso.pdf`, 10 págs).
+
+> Los dos modelos están separados en carpetas independientes: `MM1/` e `Inventario/`, cada una con su `main.py` y su `resultados/` (ignorado por git vía `.gitignore`).
 
 ---
 
 ## 1. Lo que YA está hecho
 
-### Código Python — MM1 (`Trabajo MM1/main.py`)
+### Código Python — MM1 (`MM1/main.py`)
 - Simulación por eventos discretos de cola M/M/1 (`simular_mm1`), con cola **infinita** y **finita** (K = tamaño + 1).
 - Configuración pedida por la consigna:
   - Tasas de arribo al 25/50/75/100/125% de µ (`factores_lambda = [0.25, 0.50, 0.75, 1.00, 1.25]`).
@@ -18,15 +20,19 @@ Estado al 2026-06-30. Cruce entre la **consigna** (`Consigna.md`), el **código*
 - Exporta CSV (`mm1_*`) y gráficos (métricas vs λ/µ, denegación por tamaño de cola, evolución temporal, P(Q=n)).
 - **Revisado y refactorizado** (commit `c1316ee`): flag `registrar_historial` para no armar la traza en cada corrida y limpieza del teórico finito. Sin errores de correctitud; los valores reproducen las tablas teóricas del informe (con µ=20).
 
-### Código Python — Inventario (`Trabajo MM1/main.py`)
-- Simulación de política **(s, Q)** lote fijo, lead time fijo, ventas perdidas (`simular_inventario`).
-- Costos: **orden (fijo), mantenimiento, faltante y total** — finales y acumulados en el tiempo.
+### Código Python — Inventario (`Inventario/main.py`)
+- **Reescrito como política (s, S)** para coincidir con el informe (§3):
+  - Cantidad de pedido variable **Z = S − posición de inventario** (order-up-to S).
+  - **Lead time aleatorio** entero ~ Uniforme[`lead_time_min`, `lead_time_max`].
+  - **Faltante con backorder**: el stock puede quedar negativo y se cubre con recepciones futuras.
+  - **Costo de orden = K + i·Z** (fijo + incremental por unidad).
+  - Costos de mantenimiento (`h·stock⁺`) y faltante (`p·stock⁻`) por día.
+- Costos: **orden, mantenimiento, faltante y total** — finales y acumulados en el tiempo.
 - 3 políticas (A/B/C) con **10 corridas** cada una.
 - Exporta CSV (`inventario_*`) y gráficos.
-- ⚠️ **Atención:** este modelo NO coincide con el descripto ahora en el informe (ver §2.A).
 
 ### Resultados generados
-- Carpeta `Trabajo MM1/resultados/` con todos los CSV y PNG (los versionados en git están desactualizados respecto al código actual; regenerar antes de entregar).
+- Cada modelo escribe en su propia carpeta `resultados/` (ahora **ignorada por git**; regenerar con `python3 main.py` dentro de cada carpeta).
 
 ### Informe PDF (`TP3-en proceso.pdf`, 10 págs)
 - Carátula e índice (actualizado con 2.4/2.5 Python/Anylogic y 3.1/3.2 inventario).
@@ -41,20 +47,11 @@ Estado al 2026-06-30. Cruce entre la **consigna** (`Consigna.md`), el **código*
 
 ## 2. Lo que FALTA hacer
 
-### A. Discrepancia de modelo de inventario: código ≠ informe (BLOQUEANTE, NUEVO)
-El informe (§3) ahora describe un modelo distinto al que implementa el código:
-
-| Aspecto | Informe (`TP3-en proceso.pdf`) | Código (`main.py`) |
-|---|---|---|
-| Política | **(s, S)** order-up-to, cantidad variable `Z = S − I` | **(s, Q)** lote fijo |
-| Lead time | **Aleatorio**, distribución uniforme | **Fijo** (`lead_time = 2`) |
-| Faltante | **Backorder/backlog** (se satisface después) | **Ventas perdidas** (stock se trunca en 0) |
-| Costo de orden | `K + i·Z` (fijo + incremental por unidad) | Solo costo fijo `costo_fijo_orden` |
-
-- **Decisión requerida:** alinear ambos. Opciones:
-  1. Reescribir `simular_inventario` para que sea (s, S) con lead time uniforme, backorders y costo `K + i·Z` (coincide con el informe).
-  2. Cambiar el informe para describir el modelo (s, Q) ya implementado.
-- Recomendación: opción 1 (el informe ya tiene la teoría escrita con integrales y `Z = S − I`).
+### A. Discrepancia de modelo de inventario: código ≠ informe ✅ RESUELTO
+`Inventario/main.py` fue reescrito como política **(s, S)** con lead time uniforme,
+backorders y costo de orden `K + i·Z`, alineado con la teoría del informe (§3.1).
+Pendiente derivado: **justificar la elección de parámetros** (s, S, costos, lead time)
+→ ver §E (sección 3.2 del informe).
 
 ### B. Resolver discrepancia de µ en MM1 (BLOQUEANTE)
 - Informe usa **µ = 20**; código usa **`mu = 10.0`**.
@@ -85,7 +82,7 @@ El informe (§3) ahora describe un modelo distinto al que implementa el código:
 ---
 
 ## 3. Orden sugerido
-1. Decidir y alinear el modelo de inventario (A) — reescribir `simular_inventario` como (s, S).
+1. ~~Alinear el modelo de inventario como (s, S)~~ ✅ hecho.
 2. Unificar µ en MM1 (B) y correr el código → validar contra tablas teóricas.
 3. Agregar ingreso de parámetros (C).
 4. Construir modelos en AnyLogic (D) y exportar resultados.
